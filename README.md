@@ -1,6 +1,6 @@
 # ixMaps Claude Skill
 
-A Claude Code skill for creating interactive maps using the [ixMaps framework](https://github.com/gjrichter/ixmaps).
+A Claude Code skill for creating interactive maps using the [ixMaps framework](https://github.com/gjrichter/ixmaps_flat).
 
 ![ixMaps](https://img.shields.io/badge/ixMaps-Interactive%20Maps-blue)
 ![Claude Code](https://img.shields.io/badge/Claude-Code%20Skill-purple)
