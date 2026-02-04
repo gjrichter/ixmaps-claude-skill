@@ -131,7 +131,19 @@ When this skill is invoked, you should:
 .type("FEATURE|CHOROPLETH")
 ```
 
+**For GeoJSON Categorical Choropleth (String Fields)**
+
+- Use when the value field is a category (e.g., country name, region code)
+- Type MUST include `CATEGORICAL`: `FEATURE|CHOROPLETH|CATEGORICAL`
+- Use a categorical colorscheme preset to auto-generate enough colors:
+  - `colorscheme: ["1","tableau"]`
+- Binding should use the categorical field as `value` and `title`:
+  - `.binding({ geo: "geometry", value: "NAME_FIELD", title: "NAME_FIELD" })`
+
+
+
 **For point data (CSV/JSON with lat/lon):**
+
 - Use standard chart types: `CHART|BUBBLE|SIZE|VALUES`, `CHART|PIE`, etc.
 - Binding uses: `{ geo: "lat|lon", value: "fieldname" }`
 - Style MUST include: `showdata: "true"`
@@ -279,6 +291,26 @@ ixmaps.layer("boundaries")
     .title("Administrative Boundaries")
     .define()
 ```
+
+### Example 4: GeoJSON Categorical Choropleth (String Fields)
+
+```javascript
+ixmaps.layer("regions")
+    .data({ url: "regions.topojson", type: "topojson" })
+    .binding({ geo: "geometry", value: "NAME_ENGL", title: "NAME_ENGL" })
+    .style({
+        colorscheme: ["1","tableau"],
+        showdata: "true"
+    })
+    .meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+    .type("FEATURE|CHOROPLETH|CATEGORICAL")
+    .title("Regions by Name")
+    .define()
+```
+
+## 
+
+
 
 ## Notes
 
