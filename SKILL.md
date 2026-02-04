@@ -87,6 +87,7 @@ When this skill is invoked, you should:
         })
         .options({
             objectscaling: "dynamic",
+            normalSizeScale: "1000000",
             basemapopacity: 0.6
         })
         .view({
@@ -99,7 +100,8 @@ When this skill is invoked, you should:
                 .binding({ geo: "lat|lon", value: "[VALUE_FIELD]", title: "[TITLE_FIELD]" })
                 .style({
                     colorscheme: [COLORS],
-                    normalsizevalue: [NORM_VALUE],
+                    normalsizevalue: [NORM_VALUE],  // Value corresponding to 30px chart size
+                    scale: 1,  // Scaling factor (1 = no scaling)
                     opacity: 0.7,
                     showdata: "true"
                 })
@@ -119,36 +121,75 @@ When this skill is invoked, you should:
 
 **For GeoJSON data sources:**
 - Type MUST be `FEATURE` or `FEATURE|CHOROPLETH` (for colored regions)
-- Binding MUST include: `{ geo: "geometry", value: "$item$" }`
+- For simple features: use `value: "$item$"` in binding
+- For categorical coloring by text field: use `value: "fieldname"` and add `|CATEGORICAL` to type
+- Property field names are referenced directly (e.g., `title: "NAME_ENGL"`), NOT with "properties." prefix
 - Style MUST include: `showdata: "true"`
 - Meta MUST include: `{ tooltip: "{{theme.item.chart}}{{theme.item.data}}" }`
-- Example for GeoJSON:
+- Example for simple GeoJSON:
 ```javascript
 .data({ url: "path/to/data.geojson", type: "geojson" })
-.binding({ geo: "geometry", value: "$item$" })
+.binding({ geo: "geometry", value: "$item$", title: "name" })
 .style({ colorscheme: ["#0066cc"], showdata: "true" })
 .meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
-.type("FEATURE|CHOROPLETH")
+.type("FEATURE")
+```
+- Example for categorical coloring:
+```javascript
+.data({ url: "path/to/data.geojson", type: "geojson" })
+.binding({ geo: "geometry", value: "category_field", title: "name" })
+.style({ colorscheme: ["100", "tableau"], showdata: "true" })
+.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+.type("FEATURE|CHOROPLETH|CATEGORICAL")
 ```
 
-**For GeoJSON Categorical Choropleth (String Fields)**
-
-- Use when the value field is a category (e.g., country name, region code)
-- Type MUST include `CATEGORICAL`: `FEATURE|CHOROPLETH|CATEGORICAL`
-- Use a categorical colorscheme preset to auto-generate enough colors:
-  - `colorscheme: ["1","tableau"]`
-- Binding should use the categorical field as `value` and `title`:
-  - `.binding({ geo: "geometry", value: "NAME_FIELD", title: "NAME_FIELD" })`
-
-
+**For TopoJSON data sources:**
+- Same rules as GeoJSON apply
+- Type can be `type: "topojson"` in the data configuration
+- For simple features: use `value: "$item$"` in binding
+- For categorical coloring by text field: use `value: "fieldname"` and add `|CATEGORICAL` to type
+- Property field names are referenced directly (e.g., `title: "NAME_ENGL"`), NOT with "properties." prefix
+- Example for simple TopoJSON:
+```javascript
+.data({ url: "path/to/data.json", type: "topojson" })
+.binding({ geo: "geometry", value: "$item$", title: "NAME_ENGL" })
+.style({ colorscheme: ["#0066cc"], showdata: "true" })
+.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+.type("FEATURE")
+```
+- Example for categorical coloring:
+```javascript
+.data({ url: "path/to/data.json", type: "topojson" })
+.binding({ geo: "geometry", value: "NAME_ENGL", title: "NAME_ENGL" })
+.style({ colorscheme: ["100", "tableau"], showdata: "true" })
+.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+.type("FEATURE|CHOROPLETH|CATEGORICAL")
+```
 
 **For point data (CSV/JSON with lat/lon):**
-
-- Use standard chart types: `CHART|BUBBLE|SIZE|VALUES`, `CHART|PIE`, etc.
-- Binding uses: `{ geo: "lat|lon", value: "fieldname" }`
+- Use standard chart types: `CHART|BUBBLE|SIZE|VALUES`, `CHART|PIE`, `CHART|DOT`, etc.
+- For simple points without data values: `CHART|DOT` with static colorscheme
+- For categorical coloring by text field: `CHART|DOT|CATEGORICAL` with dynamic colorscheme
+- Binding uses: `{ geo: "lat|lon", value: "fieldname", title: "titlefield" }` or just `{ geo: "coordinate_field", title: "titlefield" }` if coordinates are in single field
 - Style MUST include: `showdata: "true"`
 - Meta MUST include: `{ tooltip: "{{theme.item.chart}}{{theme.item.data}}" }`
-- Example for points:
+- Example for simple points:
+```javascript
+.data({ obj: data, type: "json" })
+.binding({ geo: "lat|lon", title: "name" })
+.style({ colorscheme: ["#0066cc"], scale: 1, showdata: "true" })
+.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+.type("CHART|DOT")
+```
+- Example for categorical points:
+```javascript
+.data({ url: "data.csv", type: "csv" })
+.binding({ geo: "coordinate_geografiche", value: "category_field", title: "name" })
+.style({ colorscheme: ["100", "tableau"], scale: 1, showdata: "true" })
+.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
+.type("CHART|DOT|CATEGORICAL")
+```
+- Example for sized bubbles:
 ```javascript
 .data({ obj: data, type: "json" })
 .binding({ geo: "lat|lon", value: "population", title: "name" })
@@ -164,6 +205,12 @@ When this skill is invoked, you should:
    - zoom: 6
    - viztype: "CHART|BUBBLE|SIZE|VALUES"
    - colorscheme: ["#0066cc"]
+
+5c. **Map Options Rules** (CRITICAL):
+   - When using `objectscaling: "dynamic"`, you MUST also include `normalSizeScale` with a reasonable scale value
+   - `normalSizeScale` value should be a string representing the scale (e.g., `"1000000"`, `"500000"`, `"2000000"`)
+   - The scale value depends on your data range - adjust to make symbols appear at reasonable sizes
+   - Example: `.options({ objectscaling: "dynamic", normalSizeScale: "1000000", basemapopacity: 0.6 })`
 
 5b. **Valid mapType values** (IMPORTANT - use exact names):
    - `"VT_TONER_LITE"` - Clean, minimal base map (default)
@@ -181,15 +228,32 @@ When this skill is invoked, you should:
 
 7. **Binding Rules** (CRITICAL):
    - **ALWAYS** include `.binding()` method for every layer
-   - For GeoJSON: `{ geo: "geometry", value: "$item$" }`
-   - For point data: `{ geo: "lat|lon", value: "fieldname", title: "titlefield" }`
-   - The `value` field is REQUIRED - without it the layer won't work
-   - Use `"$item$"` as value for GeoJSON when displaying the geometry itself
+   - For GeoJSON/TopoJSON simple features: `{ geo: "geometry", value: "$item$", title: "fieldname" }`
+   - For GeoJSON/TopoJSON categorical coloring: `{ geo: "geometry", value: "fieldname", title: "fieldname" }` (value points to the field to colorize by)
+   - For point data with values: `{ geo: "lat|lon", value: "fieldname", title: "titlefield" }`
+   - For point data without values (simple dots): `{ geo: "lat|lon", title: "titlefield" }` (no value needed)
+   - For point data categorical coloring: `{ geo: "coordinate_field", value: "category_field", title: "titlefield" }`
+   - Geographic coordinates can be in separate fields (`geo: "lat|lon"`) or single field (`geo: "coordinate_geografiche"`)
+   - Use `"$item$"` as value for GeoJSON/TopoJSON when displaying the geometry itself without data-based coloring
+   - Use a field name as value (e.g., `"NAME_ENGL"`, `"tipologia_infrastruttura"`) when you want to color by that field's categorical values
+   - Property fields in GeoJSON/TopoJSON are referenced directly by name (e.g., `"NAME_ENGL"`), NOT `"properties.NAME_ENGL"`
 
 7b. **Style Rules** (IMPORTANT):
    - **ALWAYS** include `showdata: "true"` in the `.style()` object
    - This enables data display on the map elements
-   - Example: `.style({ colorscheme: ["#0066cc"], showdata: "true" })`
+   - Use `colorscheme` to define fill colors (array of color values)
+   - `fillcolor` does NOT exist - colors are defined by `colorscheme`
+   - For static colors: use array of hex colors, e.g., `["#0066cc"]` or `["#ffffcc", "#ff0000"]`
+   - For categorical coloring: use dynamic colorscheme with `["count", "palette_name"]`, e.g., `["100", "tableau"]` - ixMaps calculates exact number needed
+   - Available palette names: `"tableau"`, `"paired"`, `"set1"`, `"set2"`, `"set3"`, `"pastel1"`, `"dark2"`, etc.
+   - For borders/lines, use `linecolor` and `linewidth` (NOT strokecolor/strokewidth)
+   - For chart sizing:
+     - `scale`: Scaling parameter where 1 = no scaling (e.g., `scale: 1.5` makes charts 50% larger)
+     - `normalsizevalue`: The data value that corresponds to a 30 pixel chart size (e.g., `normalsizevalue: 1000` means value of 1000 = 30px)
+     - `symbolsize` does NOT exist - use `scale` or `normalsizevalue` instead
+   - Example static: `.style({ colorscheme: ["#0066cc"], linecolor: "#ffffff", linewidth: 1, showdata: "true" })`
+   - Example categorical: `.style({ colorscheme: ["100", "tableau"], scale: 1, showdata: "true" })`
+   - Example with sizing: `.style({ colorscheme: ["#0066cc"], normalsizevalue: 1000, showdata: "true" })`
 
 7c. **Meta Rules** (IMPORTANT):
    - **ALWAYS** include `.meta()` method after `.style()` and before `.type()`
@@ -216,16 +280,21 @@ When this skill is invoked, you should:
 ## Supported Visualization Types
 
 ### For Point Data (CSV/JSON with lat/lon coordinates):
-- **CHART|BUBBLE|SIZE|VALUES** - Proportional circles
+- **CHART|DOT** - Simple dots at locations (uniform size and color)
+- **CHART|DOT|CATEGORICAL** - Dots colored by categorical field values
+- **CHART|BUBBLE|SIZE|VALUES** - Proportional circles sized by data values
 - **CHART|PIE** - Pie charts at locations
 - **CHART|BAR|VALUES** - Bar charts
-- **DOT** - Simple dots at locations
+- **NOTE**: All chart types MUST include the `CHART|` prefix
 
-### For GeoJSON/Geometry Data:
-- **FEATURE** - Simple geographic features (polygons, lines)
-- **FEATURE|CHOROPLETH** - Color-coded regions with data values
+### For GeoJSON/TopoJSON Geometry Data:
+- **FEATURE** - Simple geographic features (polygons, lines) with uniform or single color
+- **FEATURE|CHOROPLETH** - Color-coded regions with numeric data values
   - Add `|EQUIDISTANT` for equal intervals: `FEATURE|CHOROPLETH|EQUIDISTANT`
   - Add `|QUANTILE` for quantiles: `FEATURE|CHOROPLETH|QUANTILE`
+- **FEATURE|CHOROPLETH|CATEGORICAL** - Color-coded regions by categorical/text field values
+  - Use with dynamic colorscheme: `["100", "tableau"]`
+  - ixMaps automatically calculates the exact number of colors needed
 
 ## Complete Examples
 
@@ -256,7 +325,8 @@ ixmaps.layer("regions")
     .data({ url: "regions.geojson", type: "geojson" })
     .binding({
         geo: "geometry",
-        value: "$item$"  // REQUIRED for GeoJSON
+        value: "$item$",  // REQUIRED for GeoJSON
+        title: "region_name"  // Property name directly, not properties.region_name
     })
     .style({
         colorscheme: ["#ffffcc","#ff0000"],
@@ -277,11 +347,14 @@ ixmaps.layer("boundaries")
     .data({ url: "boundaries.geojson", type: "geojson" })
     .binding({
         geo: "geometry",
-        value: "$item$"  // Still REQUIRED even without data
+        value: "$item$",  // Still REQUIRED even without data
+        title: "name"  // Property name directly
     })
     .style({
-        fillcolor: "#cccccc",
+        colorscheme: ["#cccccc"],
         fillopacity: 0.3,
+        linecolor: "#666666",
+        linewidth: 1,
         showdata: "true"  // REQUIRED
     })
     .meta({
@@ -292,25 +365,85 @@ ixmaps.layer("boundaries")
     .define()
 ```
 
-### Example 4: GeoJSON Categorical Choropleth (String Fields)
-
+### Example 4: TopoJSON data (European countries - simple)
 ```javascript
-ixmaps.layer("regions")
-    .data({ url: "regions.topojson", type: "topojson" })
-    .binding({ geo: "geometry", value: "NAME_ENGL", title: "NAME_ENGL" })
+ixmaps.layer("european_countries")
+    .data({
+        url: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+        type: "topojson"
+    })
+    .binding({
+        geo: "geometry",
+        value: "$item$",  // Simple feature display
+        title: "NAME_ENGL"  // Property name directly, NOT properties.NAME_ENGL
+    })
     .style({
-        colorscheme: ["1","tableau"],
+        colorscheme: ["#6ba3d9"],
+        fillopacity: 0.6,
+        linecolor: "#ffffff",
+        linewidth: 1.5,
         showdata: "true"
     })
-    .meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })
-    .type("FEATURE|CHOROPLETH|CATEGORICAL")
-    .title("Regions by Name")
+    .meta({
+        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+    })
+    .type("FEATURE")
+    .title("European Countries (2020)")
     .define()
 ```
 
-## 
+### Example 5: TopoJSON with categorical coloring
+```javascript
+ixmaps.layer("european_countries")
+    .data({
+        url: "https://s3.eu-central-1.amazonaws.com/maps.ixmaps.com/topojson/CNTR_RG_10M_2020_4326.json",
+        type: "topojson"
+    })
+    .binding({
+        geo: "geometry",
+        value: "NAME_ENGL",  // Colorize by country name
+        title: "NAME_ENGL"
+    })
+    .style({
+        colorscheme: ["100", "tableau"],  // Dynamic colorscheme - ixMaps calculates exact count
+        fillopacity: 0.7,
+        linecolor: "#ffffff",
+        linewidth: 1.5,
+        showdata: "true"
+    })
+    .meta({
+        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+    })
+    .type("FEATURE|CHOROPLETH|CATEGORICAL")
+    .title("European Countries by Name")
+    .define()
+```
 
-
+### Example 6: CSV point data with categorical coloring
+```javascript
+ixmaps.layer("edilizia_tipologia")
+    .data({
+        url: "https://data.s3.tebi.io/test%20only/infrastruttura-edilizia.csv",
+        type: "csv"
+    })
+    .binding({
+        geo: "coordinate_geografiche",  // Single field with coordinates
+        value: "tipologia_infrastruttura",  // Colorize by infrastructure type
+        title: "nome_infrastruttura"
+    })
+    .style({
+        colorscheme: ["100", "tableau"],  // Dynamic colorscheme
+        scale: 1.5,  // Scale factor for chart size
+        opacity: 0.8,
+        showdata: "true"
+    })
+    .meta({
+        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+    })
+    .type("CHART|DOT|CATEGORICAL")  // Must include CHART| prefix
+    .title("Infrastruttura per Tipologia")
+    .define()
+```
 
 ## Notes
 
