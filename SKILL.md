@@ -12,7 +12,6 @@ This skill helps you create interactive maps using the ixMaps framework quickly 
 Creates a complete HTML file with an interactive ixMaps visualization. You can specify the map type, data, and visualization style through simple parameters.
 
 ## Usage
-
 ```
 /create-ixmap [options]
 ```
@@ -31,7 +30,6 @@ The skill accepts parameters in natural language. You can specify:
 - **colorscheme**: Color array for visualization
 
 ## Examples
-
 ```bash
 # Create a simple bubble map of Italian cities
 /create-ixmap filename=citta_italia.html title="Città Italiane"
@@ -88,7 +86,8 @@ When this skill is invoked, you should:
         .options({
             objectscaling: "dynamic",
             normalSizeScale: "1000000",
-            basemapopacity: 0.6
+            basemapopacity: 0.6,
+            flushChartDraw: 1000000
         })
         .view({
             center: { lat: [LAT], lng: [LNG] },
@@ -100,8 +99,7 @@ When this skill is invoked, you should:
                 .binding({ geo: "lat|lon", value: "[VALUE_FIELD]", title: "[TITLE_FIELD]" })
                 .style({
                     colorscheme: [COLORS],
-                    normalsizevalue: [NORM_VALUE],  // Value corresponding to 30px chart size
-                    scale: 1,  // Scaling factor (1 = no scaling)
+                    scale: 1,
                     opacity: 0.7,
                     showdata: "true"
                 })
@@ -170,6 +168,7 @@ When this skill is invoked, you should:
 - Use standard chart types: `CHART|BUBBLE|SIZE|VALUES`, `CHART|PIE`, `CHART|DOT`, etc.
 - For simple points without data values: `CHART|DOT` with static colorscheme
 - For categorical coloring by text field: `CHART|DOT|CATEGORICAL` with dynamic colorscheme
+- For aggregated data (with |AGGREGATE): Use `value: "$item$"` to count items
 - Binding uses: `{ geo: "lat|lon", value: "fieldname", title: "titlefield" }` or just `{ geo: "coordinate_field", title: "titlefield" }` if coordinates are in single field
 - Style MUST include: `showdata: "true"`
 - Meta MUST include: `{ tooltip: "{{theme.item.chart}}{{theme.item.data}}" }`
@@ -205,12 +204,7 @@ When this skill is invoked, you should:
    - zoom: 6
    - viztype: "CHART|BUBBLE|SIZE|VALUES"
    - colorscheme: ["#0066cc"]
-
-5c. **Map Options Rules** (CRITICAL):
-   - When using `objectscaling: "dynamic"`, you MUST also include `normalSizeScale` with a reasonable scale value
-   - `normalSizeScale` value should be a string representing the scale (e.g., `"1000000"`, `"500000"`, `"2000000"`)
-   - The scale value depends on your data range - adjust to make symbols appear at reasonable sizes
-   - Example: `.options({ objectscaling: "dynamic", normalSizeScale: "1000000", basemapopacity: 0.6 })`
+   - flushChartDraw: 1000000 (instant rendering)
 
 5b. **Valid mapType values** (IMPORTANT - use exact names):
    - `"VT_TONER_LITE"` - Clean, minimal base map (default)
@@ -219,6 +213,16 @@ When this skill is invoked, you should:
    - `"CartoDB - Dark_Matter"` - Dark CartoDB style (note the spaces and dash)
    - `"Stamen Terrain"` - Terrain with hill shading
    - **CRITICAL**: CartoDB map types require spaces around the dash: `"CartoDB - Positron"` NOT `"CartoDB Positron"`
+
+5c. **Map Options Rules** (CRITICAL):
+   - When using `objectscaling: "dynamic"`, you MUST also include `normalSizeScale` with a reasonable scale value
+   - `normalSizeScale` value should be a string representing the scale (e.g., `"1000000"`, `"500000"`, `"2000000"`)
+   - The scale value depends on your data range - adjust to make symbols appear at reasonable sizes
+   - **Animation control**: `flushChartDraw: 1000000` disables animated rendering for instant display
+     - Set to `1` for smooth animation (renders charts one by one)
+     - Set to `100` for faster animation (renders charts in batches of 100)
+     - Set to `1000000` to disable animation (renders all charts at once)
+   - Example: `.options({ objectscaling: "dynamic", normalSizeScale: "1000000", basemapopacity: 0.6, flushChartDraw: 1000000 })`
 
 6. **Data handling**:
    - If user provides inline data as JSON array, embed it directly
@@ -233,8 +237,11 @@ When this skill is invoked, you should:
    - For point data with values: `{ geo: "lat|lon", value: "fieldname", title: "titlefield" }`
    - For point data without values (simple dots): `{ geo: "lat|lon", title: "titlefield" }` (no value needed)
    - For point data categorical coloring: `{ geo: "coordinate_field", value: "category_field", title: "titlefield" }`
+   - **For aggregated data (with |AGGREGATE)**: Use `value: "$item$"` to count items, not a specific field
    - Geographic coordinates can be in separate fields (`geo: "lat|lon"`) or single field (`geo: "coordinate_geografiche"`)
-   - Use `"$item$"` as value for GeoJSON/TopoJSON when displaying the geometry itself without data-based coloring
+   - Use `"$item$"` as value for:
+     - GeoJSON/TopoJSON when displaying the geometry itself without data-based coloring
+     - Point data with `|AGGREGATE` type when counting items (not summing a field)
    - Use a field name as value (e.g., `"NAME_ENGL"`, `"tipologia_infrastruttura"`) when you want to color by that field's categorical values
    - Property fields in GeoJSON/TopoJSON are referenced directly by name (e.g., `"NAME_ENGL"`), NOT `"properties.NAME_ENGL"`
 
@@ -250,10 +257,13 @@ When this skill is invoked, you should:
    - For chart sizing:
      - `scale`: Scaling parameter where 1 = no scaling (e.g., `scale: 1.5` makes charts 50% larger)
      - `normalsizevalue`: The data value that corresponds to a 30 pixel chart size (e.g., `normalsizevalue: 1000` means value of 1000 = 30px)
+     - **IMPORTANT**: Only use `normalsizevalue` when you know the expected maximum value. With `|AGGREGATE`, avoid using it since maximum counts are unknown
      - `symbolsize` does NOT exist - use `scale` or `normalsizevalue` instead
+   - **Grid aggregation**: Use `gridwidth: "5px"` in style (NOT in type string)
    - Example static: `.style({ colorscheme: ["#0066cc"], linecolor: "#ffffff", linewidth: 1, showdata: "true" })`
    - Example categorical: `.style({ colorscheme: ["100", "tableau"], scale: 1, showdata: "true" })`
    - Example with sizing: `.style({ colorscheme: ["#0066cc"], normalsizevalue: 1000, showdata: "true" })`
+   - Example with grid: `.style({ colorscheme: ["#ff0000"], gridwidth: "5px", scale: 1.5, showdata: "true" })`
 
 7c. **Meta Rules** (IMPORTANT):
    - **ALWAYS** include `.meta()` method after `.style()` and before `.type()`
@@ -295,6 +305,51 @@ When this skill is invoked, you should:
 - **FEATURE|CHOROPLETH|CATEGORICAL** - Color-coded regions by categorical/text field values
   - Use with dynamic colorscheme: `["100", "tableau"]`
   - ixMaps automatically calculates the exact number of colors needed
+
+## Aggregation
+
+### Point Data Aggregation with Grid
+
+ixMaps can aggregate point data into a grid for density visualization:
+
+**Type**: Add `|AGGREGATE` to chart types
+- `CHART|BUBBLE|SIZE|AGGREGATE` - Aggregate bubbles sized by count
+- `CHART|DOT|AGGREGATE` - Aggregate dots
+- `CHART|GRID|AGGREGATE` - Square grid cells
+
+**Grid Size**: Define in `.style()` using `gridwidth`
+- `gridwidth: "5px"` - 5 pixel grid cells
+- `gridwidth: "10px"` - 10 pixel grid cells
+- Grid size adapts to zoom level
+
+**Value Binding**: Use `"$item$"` for counting
+- `value: "$item$"` counts items in each grid cell
+- Don't use specific field names when just counting
+- Avoid `normalsizevalue` with aggregation (unknown max count)
+
+**Example - Aggregate with 5px grid:**
+```javascript
+ixmaps.layer("incidents")
+    .data({ obj: data, type: "json" })
+    .binding({
+        geo: "lat|lon",
+        value: "$item$",  // Count items in each cell
+        title: "location"
+    })
+    .style({
+        colorscheme: ["#ffeb3b", "#ff9800", "#f44336"],
+        gridwidth: "5px",  // 5px grid cells
+        scale: 1.5,
+        opacity: 0.7,
+        showdata: "true"
+    })
+    .meta({
+        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+    })
+    .type("CHART|BUBBLE|SIZE|AGGREGATE")
+    .title("Aggregated Points")
+    .define()
+```
 
 ## Complete Examples
 
@@ -445,6 +500,44 @@ ixmaps.layer("edilizia_tipologia")
     .define()
 ```
 
+### Example 7: Point data aggregation with grid (incident density)
+```javascript
+ixmaps.layer("incident_density")
+    .data({
+        url: "https://example.com/incidents.geojson",
+        type: "geojson"
+    })
+    .binding({
+        geo: "lat|lon",
+        value: "$item$",  // Count incidents in each grid cell
+        title: "via"
+    })
+    .style({
+        colorscheme: ["#ffeb3b", "#ff9800", "#f44336", "#b71c1c"],
+        gridwidth: "5px",  // 5 pixel grid aggregation
+        scale: 1.5,
+        opacity: 0.7,
+        showdata: "true"
+    })
+    .meta({
+        tooltip: "{{theme.item.chart}}{{theme.item.data}}"
+    })
+    .type("CHART|BUBBLE|SIZE|AGGREGATE")
+    .title("Incident Density (5px grid)")
+    .define()
+```
+
+**Map options with animation control:**
+```javascript
+ixmaps.Map("map", { mapType: "CartoDB - Positron" })
+    .options({
+        objectscaling: "dynamic",
+        normalSizeScale: "1000000",
+        basemapopacity: 0.7,
+        flushChartDraw: 1000000  // Instant rendering (set to 1 for animation)
+    })
+```
+
 ## Notes
 
 - The skill always creates a standalone HTML file that works without a server
@@ -454,6 +547,7 @@ ixmaps.layer("edilizia_tipologia")
 - **CRITICAL**: Always use `.binding()` with appropriate `geo` and `value` properties
 - **CRITICAL**: Always include `showdata: "true"` in `.style()`
 - **CRITICAL**: Always include `.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })`
+- **CRITICAL**: For aggregation, use `value: "$item$"` and `gridwidth` in style, avoid `normalsizevalue`
 - **NEVER** use `.tooltip()` - it doesn't exist in the ixMaps API
 
 ## Layer Method Chain Order
@@ -461,8 +555,9 @@ ixmaps.layer("edilizia_tipologia")
 The correct order for layer methods is:
 1. `.data()` - Define data source
 2. `.binding()` - Map data fields to map properties
-3. `.style()` - Visual styling (MUST include `showdata: "true"`)
-4. `.meta()` - Metadata and tooltip configuration
-5. `.type()` - Visualization type
-6. `.title()` - Layer title
-7. `.define()` - Finalize layer definition
+3. `.filter()` - Optional data filter
+4. `.type()` - Visualization type
+5. `.style()` - Visual styling (MUST include `showdata: "true"`)
+6. `.meta()` - Metadata and tooltip configuration
+7. `.title()` - Layer title
+8. `.define()` - Finalize layer definition
