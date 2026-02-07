@@ -12,6 +12,7 @@ This skill helps you create interactive maps using the ixMaps framework quickly 
 Creates a complete HTML file with an interactive ixMaps visualization. You can specify the map type, data, and visualization style through simple parameters.
 
 ## Usage
+
 ```
 /create-ixmap [options]
 ```
@@ -30,6 +31,7 @@ The skill accepts parameters in natural language. You can specify:
 - **colorscheme**: Color array for visualization
 
 ## Examples
+
 ```bash
 # Create a simple bubble map of Italian cities
 /create-ixmap filename=citta_italia.html title="Città Italiane"
@@ -81,7 +83,8 @@ When this skill is invoked, you should:
 
         // Create map
         ixmaps.Map("map", {
-            mapType: "[MAPTYPE]"
+            mapType: "[MAPTYPE]",  // e.g., "white", "VT_TONER_LITE", "CartoDB - Positron"
+            mode: "info"           // Enable tooltips on mouseover (optional)
         })
         .options({
             objectscaling: "dynamic",
@@ -93,6 +96,7 @@ When this skill is invoked, you should:
             center: { lat: [LAT], lng: [LNG] },
             zoom: [ZOOM]
         })
+        .legend("[LEGEND_TITLE]")  // Optional: custom legend title
         .layer(
             ixmaps.layer("data_layer")
                 .data({ obj: data, type: "json" })
@@ -208,6 +212,7 @@ When this skill is invoked, you should:
 
 5b. **Valid mapType values** (IMPORTANT - use exact names):
    - `"VT_TONER_LITE"` - Clean, minimal base map (default)
+   - `"white"` - Plain white background (no base map tiles)
    - `"OpenStreetMap"` - Standard OSM
    - `"CartoDB - Positron"` - Light CartoDB style (note the spaces and dash)
    - `"CartoDB - Dark_Matter"` - Dark CartoDB style (note the spaces and dash)
@@ -218,11 +223,30 @@ When this skill is invoked, you should:
    - When using `objectscaling: "dynamic"`, you MUST also include `normalSizeScale` with a reasonable scale value
    - `normalSizeScale` value should be a string representing the scale (e.g., `"1000000"`, `"500000"`, `"2000000"`)
    - The scale value depends on your data range - adjust to make symbols appear at reasonable sizes
+   - Example: `.options({ objectscaling: "dynamic", normalSizeScale: "1000000", basemapopacity: 0.6 })`
    - **Animation control**: `flushChartDraw: 1000000` disables animated rendering for instant display
      - Set to `1` for smooth animation (renders charts one by one)
      - Set to `100` for faster animation (renders charts in batches of 100)
      - Set to `1000000` to disable animation (renders all charts at once)
    - Example: `.options({ objectscaling: "dynamic", normalSizeScale: "1000000", basemapopacity: 0.6, flushChartDraw: 1000000 })`
+
+5d. **Legend Configuration** (IMPORTANT):
+   - Use `.legend()` method on the map object to set a custom legend title
+   - The method takes a string directly: `.legend("Legend Title")`
+   - Call it after `.view()` and before `.layer()`
+   - Example: `.legend("Ambiti territoriali Lombardia")`
+   - The legend will automatically show categorical values for CATEGORICAL themes
+
+5e. **Mouse Mode Configuration** (IMPORTANT):
+   - To enable tooltips on mouseover, set `mode: "info"` in the Map constructor options
+   - Add it directly to the Map() options object, NOT in `.options()` method
+   - Example:
+   ```javascript
+   ixmaps.Map("map", {
+       mapType: "white",
+       mode: "info"  // Enables tooltip display on hover
+   })
+   ```
 
 6. **Data handling**:
    - If user provides inline data as JSON array, embed it directly
@@ -269,7 +293,13 @@ When this skill is invoked, you should:
    - **ALWAYS** include `.meta()` method after `.style()` and before `.type()`
    - Default tooltip template: `{ tooltip: "{{theme.item.chart}}{{theme.item.data}}" }`
    - Only customize if the user explicitly requests different tooltip content
-   - Example: `.meta({ tooltip: "{{theme.item.chart}}{{theme.item.data}}" })`
+   - The tooltip template supports custom HTML with field placeholders using `{{FIELD_NAME}}` syntax
+   - Custom tooltip examples:
+     - Title only: `{ tooltip: "<h3>{{AMBITO}}</h3>" }`
+     - Title + paragraph: `{ tooltip: "<h3>{{AMBITO}}</h3><p>{{LISTA_COMUNI}}</p>" }`
+     - Multiple fields: `{ tooltip: "<strong>{{name}}</strong><br>Population: {{population}}" }`
+   - To strip the chart from tooltip and show only data: `{ tooltip: "{{theme.item.data}}" }`
+   - Field names reference GeoJSON properties directly (no "properties." prefix needed)
 
 8. **Methods that DO NOT exist** (NEVER use):
    - `.tooltip()` - Does not exist in ixMaps API
@@ -500,7 +530,46 @@ ixmaps.layer("edilizia_tipologia")
     .define()
 ```
 
-### Example 7: Point data aggregation with grid (incident density)
+### Example 7: Complete map with white background, legend, and custom tooltip
+```javascript
+// Map with all modern features
+ixmaps.Map("map", {
+    mapType: "white",  // White background
+    mode: "info"       // Enable tooltips on mouseover
+})
+.view({
+    center: { lat: 45.65, lng: 9.5 },
+    zoom: 8
+})
+.legend("Ambiti territoriali Lombardia")  // Custom legend title
+.layer(
+    ixmaps.layer("ambiti_territoriali")
+        .data({
+            url: "https://s3.fr-par.scw.cloud/ixmaps.data/test%20only/lombardia_ambiti_territoriali_confini_wgs84.geojson",
+            type: "geojson"
+        })
+        .binding({
+            geo: "geometry",
+            value: "AMBITO",
+            title: "AMBITO"
+        })
+        .style({
+            colorscheme: ["100", "tableau"],
+            fillopacity: 0.7,
+            linecolor: "#ffffff",
+            linewidth: 2,
+            showdata: "true"
+        })
+        .meta({
+            tooltip: "<h3>{{AMBITO}}</h3><p>{{LISTA_COMUNI}}</p>"  // Custom HTML tooltip
+        })
+        .type("FEATURE|CHOROPLETH|CATEGORICAL")
+        .title("Ambiti territoriali Lombardia")
+        .define()
+);
+```
+
+### Example 8: Point data aggregation with grid (incident density)
 ```javascript
 ixmaps.layer("incident_density")
     .data({
